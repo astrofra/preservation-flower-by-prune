@@ -1,8 +1,8 @@
 /*
  * nX/X3 engine asset extractor. No third-party dependencies.
  * The FXLK reader was reconstructed from FreeStyle (2000). External-table
- * modes support the earlier LTP3 (1999) data file and Dash (1999) GCR file.
- * See documentation/dash-container-format.md for evidence and limitations.
+ * modes support LTP3 (1999), Dash (1999), and Flower (2001).
+ * See documentation/flower-container-format.md for evidence and limitations.
  *
  * cmake -S . -B build -G "Visual Studio 17 2022" -A x64
  * cmake --build build --config Release
@@ -12,6 +12,7 @@
  * bin\klx_unpack.exe --list --ltp3-exe LTP3.exe data
  * bin\klx_unpack.exe --dash-exe Dash.exe Dash.GCR new-output-directory
  * bin\klx_unpack.exe --list --dash-exe Dash.exe Dash.GCR
+ * bin\klx_unpack.exe --flower-exe PRUNE_Flower.unpacked.exe PRUNE_Flower.gcr output
  */
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
@@ -53,6 +54,8 @@
 #define LTP3_ENTRY_COUNT 157u
 #define DASH_TABLE_RVA 0x00017030u
 #define DASH_ENTRY_COUNT 98u
+#define FLOWER_TABLE_RVA 0x0003f810u
+#define FLOWER_ENTRY_COUNT 81u
 
 enum StorageMethod {
     METHOD_XOR_9A,
@@ -705,18 +708,21 @@ static int run(int argc, char **argv)
             printf("Usage: klx_unpack [--list] archive.klx [new-output-directory]\n"
                    "       klx_unpack [--list] --ltp3-exe LTP3.exe data [new-output-directory]\n"
                    "       klx_unpack [--list] --dash-exe Dash.exe Dash.GCR [new-output-directory]\n"
+                   "       klx_unpack [--list] --flower-exe unpacked.exe PRUNE_Flower.gcr [new-output-directory]\n"
                    "nX/X3 FXLK and external-table LZARI extractor. Limit: 256 MiB.\n");
             return 0;
         } else if (!strcmp(argv[arg], "--list")) {
             list = 1;
             ++arg;
         } else if ((!strcmp(argv[arg], "--ltp3-exe") ||
-                    !strcmp(argv[arg], "--dash-exe")) && arg + 1 < argc) {
+                    !strcmp(argv[arg], "--dash-exe") ||
+                    !strcmp(argv[arg], "--flower-exe")) && arg + 1 < argc) {
             if (metadata_path) {
                 fprintf(stderr, "error: choose only one metadata executable mode\n");
                 return 1;
             }
-            metadata_mode = !strcmp(argv[arg], "--dash-exe") ? 2 : 1;
+            metadata_mode = !strcmp(argv[arg], "--flower-exe") ? 3 :
+                            !strcmp(argv[arg], "--dash-exe") ? 2 : 1;
             metadata_path = argv[arg + 1];
             arg += 2;
         } else if (argv[arg][0] == '-') {
@@ -736,7 +742,8 @@ static int run(int argc, char **argv)
     if (!archive || (list ? output != NULL : output == NULL)) {
         fprintf(stderr, "Usage: klx_unpack [--list] archive.klx [new-output-directory]\n"
                         "       klx_unpack [--list] --ltp3-exe LTP3.exe data [new-output-directory]\n"
-                        "       klx_unpack [--list] --dash-exe Dash.exe Dash.GCR [new-output-directory]\n");
+                        "       klx_unpack [--list] --dash-exe Dash.exe Dash.GCR [new-output-directory]\n"
+                        "       klx_unpack [--list] --flower-exe unpacked.exe PRUNE_Flower.gcr [new-output-directory]\n");
         return 1;
     }
     data = read_file(archive, &size);
@@ -748,7 +755,12 @@ static int run(int argc, char **argv)
             free(data);
             return 1;
         }
-        if (metadata_mode == 2) {
+        if (metadata_mode == 3) {
+            ok = parse_external_archive(data, size, metadata, metadata_size,
+                                        FLOWER_TABLE_RVA, FLOWER_ENTRY_COUNT,
+                                        "C:/PRUNE_Flower/", "Flower (requires UPX-unpacked PE)",
+                                        &entries, &count);
+        } else if (metadata_mode == 2) {
             ok = parse_external_archive(data, size, metadata, metadata_size,
                                         DASH_TABLE_RVA, DASH_ENTRY_COUNT,
                                         "D:/vrac/", "Dash", &entries, &count);

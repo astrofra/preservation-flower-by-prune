@@ -1,0 +1,11 @@
+*.c text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+
+/demo-releases/** binary
+/demo-unpack/** binary
+/demo-assets/** binary
+/bin/*.exe binary
+/demo-derived/** binary
